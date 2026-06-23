@@ -111,7 +111,10 @@ rollback() {
   if [[ -n "$BACKUP_CARGO_TOML" && -f "$BACKUP_CARGO_TOML" ]]; then
     cp "$BACKUP_CARGO_TOML" Cargo.toml
   fi
-  rm -f Cargo.toml.bak "${ARCHIVE_NAME:-}" "${CHECKSUM_NAME:-}" "$BACKUP_CARGO_TOML" 2>/dev/null || true
+  rm -f Cargo.toml.bak "$BACKUP_CARGO_TOML" 2>/dev/null || true
+  if [[ -n "${DIST_DIR:-}" && -d "${DIST_DIR}" ]]; then
+    rm -rf "${DIST_DIR}"
+  fi
   if [[ -n "${STAGING_DIR:-}" && -d "${STAGING_DIR}" ]]; then
     rm -rf "${STAGING_DIR}"
   fi
@@ -130,8 +133,11 @@ echo "[PROC] Compiling optimized release binary for Apple Silicon..."
 cargo build --release --target "$RUST_TARGET"
 
 echo "[PROC] Packaging distribution archives..."
-ARCHIVE_NAME="${BIN_NAME}-${NEW_VERSION}-bin-${TARGET_ARCH}.tar.gz"
-CHECKSUM_NAME="${ARCHIVE_NAME}.sha256"
+ARCHIVE_BASENAME="${BIN_NAME}-${NEW_VERSION}-bin-${TARGET_ARCH}.tar.gz"
+CHECKSUM_BASENAME="${ARCHIVE_BASENAME}.sha256"
+DIST_DIR="$(mktemp -d)"
+ARCHIVE_NAME="${DIST_DIR}/${ARCHIVE_BASENAME}"
+CHECKSUM_NAME="${DIST_DIR}/${CHECKSUM_BASENAME}"
 STAGING_DIR="$(mktemp -d)"
 
 mkdir -p "${STAGING_DIR}/${BIN_NAME}"
@@ -209,6 +215,6 @@ EOF
 rm -rf "$TAP_DIR"
 
 echo "[PROC] Cleaning up local packaging assets..."
-rm -f "$ARCHIVE_NAME" "$CHECKSUM_NAME"
+rm -rf "$DIST_DIR"
 
 echo "[ SUCCESS ] Release v$NEW_VERSION fully deployed!"
