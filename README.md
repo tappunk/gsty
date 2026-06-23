@@ -29,7 +29,7 @@ gsty searches these paths for Ghostty theme files:
 ~/.config/ghostty/themes
 ```
 
-Selected themes are applied to `~/.config/ghostty/auto/theme.ghostty`. Reload Ghostty with **Shift+Cmd+,** to see the change.
+Selected themes are applied to `~/.config/ghostty/auto/theme.ghostty`. Hit return to apply theme.
 
 ## Installation
 
