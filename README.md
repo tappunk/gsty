@@ -67,12 +67,3 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all-targets
 ```
-
-## Releasing
-
-Use the release pipeline to cut a GitHub release, publish to crates.io, and update the Homebrew tap:
-
-```bash
-./release.sh --dry-run
-./release.sh patch
-```
