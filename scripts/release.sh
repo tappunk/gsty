@@ -118,7 +118,7 @@ rollback() {
   if [[ -n "${STAGING_DIR:-}" && -d "${STAGING_DIR}" ]]; then
     rm -rf "${STAGING_DIR}"
   fi
-  echo "[WARN] Rolled back. Re-run release.sh to try again."
+  echo "[WARN] Rolled back. Re-run scripts/release.sh to try again."
 }
 trap rollback ERR
 
