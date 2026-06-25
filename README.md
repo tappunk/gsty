@@ -7,39 +7,21 @@
 
 # gsty
 
-Ghostty live preview theme browser and installer TUI.
+**Ghostty terminal theme browser with live preview TUI.** Browse, filter, and apply themes with real-time palette display.
 
-Browse, preview, and apply Ghostty terminal themes from a live TUI. Supports filtering by dark/light mode, searching by name, and real-time palette preview with a Rust code snippet.
+[Installation](#installation) • [Usage](#usage) • [Theme Discovery](#theme-discovery)
 
-## Usage
+## Features
 
-```bash
-gsty                          # interactive TUI theme picker
-gsty --list                   # plain text listing (non-TTY fallback)
-```
-
-### Theme Discovery
-
-gsty searches these paths for Ghostty theme files:
-
-```bash
-/Applications/Ghostty.app/Contents/Resources/ghostty/themes
-/opt/homebrew/share/ghostty/themes
-/usr/share/ghostty/themes
-~/.config/ghostty/themes
-```
-
-Selected themes are applied to `~/.config/ghostty/auto/theme.ghostty`. Hit return to apply theme.
+- **Live preview** — applies themes in real-time, signals running Ghostty to reload via SIGUSR2
+- **TUI interface** — ratatui-based terminal UI with syntax-highlighted Rust code preview
+- **Dark/light filtering** — toggle between all, dark, and light themes
+- **Name search** — filter themes by name with `/` search mode
+- **Palette display** — 16-color palette grid with background, foreground, and sample code rendering
+- **Plain text listing** — `--list` flag for non-TTY environments and scripting
+- **Undo on cancel** — restores the previous theme if you cancel without confirming
 
 ## Installation
-
-gsty is available on [crates.io](https://crates.io/crates/gsty) and [Homebrew](https://brew.sh/).
-
-### Cargo
-
-```bash
-cargo install gsty
-```
 
 ### Homebrew
 
@@ -47,9 +29,13 @@ cargo install gsty
 brew install tappunk/gsty/gsty
 ```
 
-Homebrew package support is Apple Silicon only.
+### Cargo
 
-### Build from Source
+```bash
+cargo install gsty
+```
+
+### Build from source
 
 ```bash
 git clone https://github.com/tappunk/gsty.git
@@ -58,12 +44,36 @@ cargo build --release
 sudo cp target/release/gsty /usr/local/bin/gsty
 ```
 
-## Local Verification
-
-Run the local verification gate before releases:
+## Usage
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
+gsty                          # Interactive TUI theme picker
+gsty --list                   # Plain text listing (non-TTY fallback)
 ```
+
+### TUI keybindings
+
+```
+j / Down        Move selection down
+k / Up          Move selection up
+g / Home        Jump to first theme
+G / End         Jump to last theme
+f               Cycle filter (all → dark → light)
+/               Toggle search mode
+Backspace       Clear search
+Enter / y       Confirm selection and apply
+q / Esc         Cancel, restore previous theme
+```
+
+## Theme Discovery
+
+gsty searches these paths for Ghostty theme files:
+
+```
+/Applications/Ghostty.app/Contents/Resources/ghostty/themes
+/opt/homebrew/share/ghostty/themes
+/usr/share/ghostty/themes
+~/.config/ghostty/themes
+```
+
+Selected themes are applied to `~/.config/ghostty/auto/theme.ghostty`. Ghostty reloads its theme automatically via the SIGUSR2 signal.
