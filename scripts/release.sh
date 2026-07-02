@@ -4,6 +4,7 @@ set -euo pipefail
 BIN_NAME="gsty"
 TARGET_ARCH="macos-arm64"
 RUST_TARGET="aarch64-apple-darwin"
+GITHUB_REPO="tappunk/gsty"
 TAP_REPO="tappunk/homebrew-gsty"
 
 DRY_RUN=false
@@ -164,13 +165,33 @@ echo "[PROC] Synchronizing changes with remote origin..."
 git push origin main
 git push origin "v$NEW_VERSION"
 
+echo "[PROC] Waiting for GitHub mirror to expose tag v$NEW_VERSION..."
+MAX_TAG_WAIT_ATTEMPTS=30
+TAG_WAIT_INTERVAL_SECS=2
+for ((attempt = 1; attempt <= MAX_TAG_WAIT_ATTEMPTS; attempt++)); do
+  if gh api "repos/${GITHUB_REPO}/git/ref/tags/v${NEW_VERSION}" >/dev/null 2>&1; then
+    echo "[PROC] GitHub mirror now contains tag v$NEW_VERSION"
+    break
+  fi
+
+  if [[ "$attempt" -eq "$MAX_TAG_WAIT_ATTEMPTS" ]]; then
+    echo "[ERR] Timed out waiting for GitHub mirror tag v$NEW_VERSION in ${GITHUB_REPO}"
+    echo "[ERR] Confirm mirror health or push tag directly to GitHub, then re-run release."
+    exit 1
+  fi
+
+  sleep "$TAG_WAIT_INTERVAL_SECS"
+done
+
 echo "[PROC] Deploying GitHub Release and assets..."
 if [[ -n "$NOTES" ]]; then
   gh release create "v$NEW_VERSION" "$ARCHIVE_NAME" "$CHECKSUM_NAME" \
+    -R "$GITHUB_REPO" \
     --title "v$NEW_VERSION" \
     --notes "$NOTES"
 else
   gh release create "v$NEW_VERSION" "$ARCHIVE_NAME" "$CHECKSUM_NAME" \
+    -R "$GITHUB_REPO" \
     --title "v$NEW_VERSION" \
     --generate-notes
 fi
@@ -179,7 +200,7 @@ echo "[PROC] Propagating release configuration to Homebrew tap..."
 RAW_SHA=$(awk '{print $1}' "${CHECKSUM_NAME}")
 TAP_DIR="$(mktemp -d)"
 
-git clone --depth 1 "https://github.com/${TAP_REPO}.git" "$TAP_DIR"
+git clone --depth 1 "git@github.com:${TAP_REPO}.git" "$TAP_DIR"
 
 mkdir -p "${TAP_DIR}/Formula"
 cat <<EOF >"${TAP_DIR}/Formula/gsty.rb"
