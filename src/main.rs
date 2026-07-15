@@ -5,11 +5,24 @@ mod theme;
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        println!("gsty {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("gsty - Ghostty theme browser and installer\n");
+        println!("gsty {} - Ghostty theme browser and installer", env!("CARGO_PKG_VERSION"));
+        println!();
         println!("Usage:");
-        println!("  gsty           Interactive TUI theme picker");
-        println!("  gsty --list    Plain text listing of discovered themes");
+        println!("  gsty              Interactive TUI theme picker");
+        println!("  gsty --list       Plain text listing of discovered themes");
+        println!("  gsty --version    Print version");
+        println!("  gsty --help       Print this help");
+        println!();
+        println!("TUI Keybindings:");
+        println!("  j/k     Navigate themes    f     Cycle filter (all/dark/light)");
+        println!("  /       Start search       g/G   Jump to first/last");
+        println!("  Enter   Apply theme        q/Esc Cancel and restore previous");
         return Ok(());
     }
 
@@ -17,7 +30,7 @@ fn run() -> Result<()> {
     let unknown_args: Vec<&str> = args
         .iter()
         .map(String::as_str)
-        .filter(|arg| !matches!(*arg, "--list" | "-l" | "--help" | "-h"))
+        .filter(|arg| !matches!(*arg, "--list" | "-l" | "--version" | "-V" | "--help" | "-h"))
         .collect();
 
     if !unknown_args.is_empty() {
