@@ -5,12 +5,12 @@ use std::process::Command;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-use crossterm::execute;
-use crossterm::event::{self, Event, KeyCode};
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
 use crossterm::cursor::{Hide, Show};
+use crossterm::event::{self, Event, KeyCode};
+use crossterm::execute;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -190,7 +190,10 @@ fn discover_themes() -> Vec<Theme> {
             continue;
         }
         let Ok(entries) = fs::read_dir(&dir) else {
-            eprintln!("warning: cannot read theme directory {}: permission denied", dir.display());
+            eprintln!(
+                "warning: cannot read theme directory {}: permission denied",
+                dir.display()
+            );
             continue;
         };
         for entry in entries.flatten() {
@@ -220,13 +223,19 @@ fn discover_themes() -> Vec<Theme> {
                         match parse_theme_file(&path) {
                             Some(theme) => themes.push(theme),
                             None => {
-                                eprintln!("warning: failed to parse theme file: {}", path.display());
+                                eprintln!(
+                                    "warning: failed to parse theme file: {}",
+                                    path.display()
+                                );
                             }
                         }
                     }
                 }
                 Err(_) => {
-                    eprintln!("warning: cannot read theme directory {}: permission denied", user_dir.display());
+                    eprintln!(
+                        "warning: cannot read theme directory {}: permission denied",
+                        user_dir.display()
+                    );
                 }
             }
         }
@@ -297,7 +306,10 @@ fn ghostty_pids_from_ps() -> Result<Vec<String>, color_eyre::Report> {
         .map_err(|e| color_eyre::eyre::eyre!("ps command failed: {e}"))?;
 
     if !output.status.success() {
-        return Err(color_eyre::eyre::eyre!("ps command failed with exit code: {}", output.status));
+        return Err(color_eyre::eyre::eyre!(
+            "ps command failed with exit code: {}",
+            output.status
+        ));
     }
 
     let mut pids = Vec::new();

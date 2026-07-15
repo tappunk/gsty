@@ -11,7 +11,10 @@ fn run() -> Result<()> {
     }
 
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("gsty {} - Ghostty theme browser and installer", env!("CARGO_PKG_VERSION"));
+        println!(
+            "gsty {} - Ghostty theme browser and installer",
+            env!("CARGO_PKG_VERSION")
+        );
         println!();
         println!("Usage:");
         println!("  gsty              Interactive TUI theme picker");
