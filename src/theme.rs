@@ -21,6 +21,7 @@ use ratatui::widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListSta
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub name: String,
+    pub name_lower: String,
     pub path: PathBuf,
     pub palette: [Color; 16],
     pub background: Color,
@@ -162,8 +163,10 @@ fn parse_theme_file(path: &Path) -> Option<Theme> {
 
     let is_dark = color_luminance(background) < 0.5;
 
+    let name = path.file_stem()?.to_string_lossy().to_string();
     Some(Theme {
-        name: path.file_stem()?.to_string_lossy().to_string(),
+        name_lower: name.to_lowercase(),
+        name,
         path: path.to_path_buf(),
         palette,
         background,
@@ -183,15 +186,22 @@ fn discover_themes() -> Vec<Theme> {
 
     for dir_path in &bundled_paths {
         let dir = PathBuf::from(dir_path);
-        if dir.exists()
-            && let Ok(entries) = fs::read_dir(&dir)
-        {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && let Some(theme) = parse_theme_file(&path)
-                {
-                    themes.push(theme);
+        if !dir.exists() {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(&dir) else {
+            eprintln!("warning: cannot read theme directory {}: permission denied", dir.display());
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            match parse_theme_file(&path) {
+                Some(theme) => themes.push(theme),
+                None => {
+                    eprintln!("warning: failed to parse theme file: {}", path.display());
                 }
             }
         }
@@ -199,15 +209,24 @@ fn discover_themes() -> Vec<Theme> {
 
     if let Ok(home) = std::env::var("HOME") {
         let user_dir = PathBuf::from(&home).join(".config/ghostty/themes");
-        if user_dir.exists()
-            && let Ok(entries) = fs::read_dir(&user_dir)
-        {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && let Some(theme) = parse_theme_file(&path)
-                {
-                    themes.push(theme);
+        if user_dir.exists() {
+            match fs::read_dir(&user_dir) {
+                Ok(entries) => {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if !path.is_file() {
+                            continue;
+                        }
+                        match parse_theme_file(&path) {
+                            Some(theme) => themes.push(theme),
+                            None => {
+                                eprintln!("warning: failed to parse theme file: {}", path.display());
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    eprintln!("warning: cannot read theme directory {}: permission denied", user_dir.display());
                 }
             }
         }
@@ -215,7 +234,7 @@ fn discover_themes() -> Vec<Theme> {
         eprintln!("warning: home is not set, skipping user theme directory");
     }
 
-    themes.sort_by_key(|a| a.name.to_lowercase());
+    themes.sort_by(|a, b| a.name_lower.cmp(&b.name_lower));
     themes
 }
 
@@ -274,16 +293,16 @@ fn ghostty_pids_from_ps() -> Result<Vec<String>, color_eyre::Report> {
         .args(["-axo", "pid=,command="])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .output()?;
+        .output()
+        .map_err(|e| color_eyre::eyre::eyre!("ps command failed: {e}"))?;
 
     if !output.status.success() {
-        return Ok(Vec::new());
+        return Err(color_eyre::eyre::eyre!("ps command failed with exit code: {}", output.status));
     }
 
     let mut pids = Vec::new();
-    let Ok(stdout) = std::str::from_utf8(&output.stdout) else {
-        return Ok(Vec::new());
-    };
+    let stdout = std::str::from_utf8(&output.stdout)
+        .map_err(|_| color_eyre::eyre::eyre!("ps output is not valid UTF-8"))?;
 
     for line in stdout.lines() {
         let trimmed = line.trim();
@@ -320,28 +339,37 @@ fn send_sigusr2_to_pids(pids: &[String]) -> Result<bool, color_eyre::Report> {
     Ok(status.success())
 }
 
-struct GhosttySignaler {
-    pids: Vec<String>,
-}
+struct GhosttySignaler;
 
 impl GhosttySignaler {
-    fn discover() -> Result<Self, color_eyre::Report> {
-        Ok(Self {
-            pids: ghostty_pids_from_ps()?,
-        })
+    fn discover() -> Self {
+        match ghostty_pids_from_ps() {
+            Ok(pids) => {
+                if pids.is_empty() {
+                    eprintln!("warning: no ghostty processes found");
+                }
+            }
+            Err(e) => {
+                eprintln!("warning: ghostty PID discovery failed: {e}");
+            }
+        }
+        Self
     }
 
-    fn reload(&mut self) -> Result<bool, color_eyre::Report> {
-        if send_sigusr2_to_pids(&self.pids)? {
-            return Ok(true);
+    fn reload(&self) -> Result<bool, color_eyre::Report> {
+        let pids = ghostty_pids_from_ps().map_err(|e| {
+            eprintln!("warning: ghostty PID discovery failed: {e}");
+            e
+        })?;
+        if pids.is_empty() {
+            return Ok(false);
         }
-
-        self.pids = ghostty_pids_from_ps()?;
-        send_sigusr2_to_pids(&self.pids)
+        send_sigusr2_to_pids(&pids)
     }
 }
 
 fn filter_themes(themes: &[Theme], filter: ThemeFilter, search: &str) -> Vec<usize> {
+    let search_lower = search.to_lowercase();
     let mut indices: Vec<usize> = (0..themes.len()).collect();
     indices.retain(|&i| {
         let matches_filter = match filter {
@@ -349,13 +377,10 @@ fn filter_themes(themes: &[Theme], filter: ThemeFilter, search: &str) -> Vec<usi
             ThemeFilter::Dark => themes[i].is_dark,
             ThemeFilter::Light => !themes[i].is_dark,
         };
-        let matches_search = if search.is_empty() {
+        let matches_search = if search_lower.is_empty() {
             true
         } else {
-            themes[i]
-                .name
-                .to_lowercase()
-                .contains(&search.to_lowercase())
+            themes[i].name_lower.contains(search_lower.as_str())
         };
         matches_filter && matches_search
     });
@@ -547,7 +572,7 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
     }
 
     let original_theme_name = read_active_theme_name()?;
-    let mut signaler = GhosttySignaler::discover()?;
+    let signaler = GhosttySignaler::discover();
 
     let result = {
         let _raw_mode = RawModeGuard::acquire()?;
