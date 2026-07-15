@@ -5,8 +5,12 @@ use std::process::Command;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
+use crossterm::execute;
 use crossterm::event::{self, Event, KeyCode};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use crossterm::cursor::{Hide, Show};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -54,13 +58,18 @@ struct RawModeGuard;
 impl RawModeGuard {
     fn acquire() -> Result<Self, color_eyre::Report> {
         enable_raw_mode()?;
+        let mut stdout = std::io::stdout();
+        execute!(stdout, EnterAlternateScreen, Hide)?;
         Ok(Self)
     }
 }
 
 impl Drop for RawModeGuard {
     fn drop(&mut self) {
+        let mut stdout = std::io::stdout();
+        let _ = execute!(stdout, LeaveAlternateScreen);
         let _ = disable_raw_mode();
+        let _ = execute!(stdout, Show);
     }
 }
 
@@ -546,8 +555,6 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
             let stdout = std::io::stdout();
             let backend = CrosstermBackend::new(stdout);
             let mut terminal = Terminal::new(backend)?;
-
-            terminal.clear()?;
 
             let mut filter = ThemeFilter::All;
             let mut search = String::new();
