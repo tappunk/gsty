@@ -3,3 +3,6 @@
 .opencode/
 AGENTS.md
 scripts/release.sh
+
+# pi agent local state
+.pi/
