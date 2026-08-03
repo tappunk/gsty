@@ -6,6 +6,7 @@ rust-version = "1.95"
 authors = ["tappunk"]
 description = "Ghostty live preview theme browser and installer TUI"
 repository = "https://github.com/tappunk/gsty"
+homepage = "https://github.com/tappunk/gsty"
 license = "MIT"
 readme = "README.md"
 keywords = ["ghostty", "theme", "terminal", "tui", "macos"]
