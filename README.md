@@ -1,9 +1,9 @@
-![gsty](https://raw.githubusercontent.com/tappunk/.github/refs/heads/main/assets/gsty.webp)
+![gsty](https://raw.githubusercontent.com/richalaleman/.github/refs/heads/main/assets/gsty.webp)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/gsty?color=orange&cacheSeconds=3600)](https://crates.io/crates/gsty)
-[![GitHub Release](https://img.shields.io/github/v/release/tappunk/gsty?color=blue)](https://github.com/tappunk/gsty/releases)
-[![X Follow](https://img.shields.io/twitter/follow/tappunk?style=social)](https://x.com/tappunk)
+[![GitHub Release](https://img.shields.io/github/v/release/richalaleman/gsty?color=blue)](https://github.com/richalaleman/gsty/releases)
+[![X Follow](https://img.shields.io/twitter/follow/richalaleman?style=social)](https://x.com/richalaleman)
 
 # gsty
 
@@ -26,7 +26,7 @@
 ### Homebrew
 
 ```bash
-brew install tappunk/gsty/gsty
+brew install richalaleman/gsty/gsty
 ```
 
 ### Cargo
@@ -38,7 +38,7 @@ cargo install gsty
 ### Build from source
 
 ```bash
-git clone https://github.com/tappunk/gsty.git
+git clone https://github.com/richalaleman/gsty.git
 cd gsty
 cargo build --release
 sudo cp target/release/gsty /usr/local/bin/gsty
