@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/gsty?color=orange&cacheSeconds=3600)](https://crates.io/crates/gsty)
-[![GitHub Release](https://img.shields.io/github/v/release/richalaleman/gsty?color=blue)](https://github.com/richalaleman/gsty/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/tappunk/gsty?color=blue)](https://github.com/tappunk/gsty/releases)
 [![X Follow](https://img.shields.io/twitter/follow/richalaleman?style=social)](https://x.com/richalaleman)
 
 # gsty
@@ -26,7 +26,8 @@
 ### Homebrew
 
 ```bash
-brew install richalaleman/gsty/gsty
+brew tap tappunk/tap            # or: cargo install gsty
+brew install tappunk/tap/gsty
 ```
 
 ### Cargo
@@ -38,7 +39,7 @@ cargo install gsty
 ### Build from source
 
 ```bash
-git clone https://github.com/richalaleman/gsty.git
+git clone https://github.com/tappunk/gsty.git
 cd gsty
 cargo build --release
 sudo cp target/release/gsty /usr/local/bin/gsty
