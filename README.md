@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/gsty?color=orange&cacheSeconds=3600)](https://crates.io/crates/gsty)
 [![GitHub Release](https://img.shields.io/github/v/release/tappunk/gsty?color=blue)](https://github.com/tappunk/gsty/releases)
-[![X Follow](https://img.shields.io/twitter/follow/richalaleman?style=social)](https://x.com/richalaleman)
+[![X Follow](https://img.shields.io/twitter/follow/tappunk?style=social)](https://x.com/tappunk)
 
 # gsty
 
