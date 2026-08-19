@@ -5,7 +5,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/tappunk/gsty?color=blue)](https://github.com/tappunk/gsty/releases)
 [![X Follow](https://img.shields.io/twitter/follow/tappunk?style=social)](https://x.com/tappunk)
 
-# gsty
+# gsty (experimental)
 
 **Ghostty terminal theme browser with live preview TUI.** Browse, filter, and apply themes with real-time palette display.
 
