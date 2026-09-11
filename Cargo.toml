@@ -1,0 +1,25 @@
+[package]
+name = "gsty"
+version = "0.1.16"
+edition = "2024"
+rust-version = "1.95"
+authors = ["tappunk"]
+description = "Ghostty live preview theme browser and installer TUI"
+repository = "https://github.com/tappunk/gsty"
+homepage = "https://github.com/tappunk/gsty"
+license = "MIT"
+readme = "README.md"
+keywords = ["ghostty", "theme", "terminal", "tui", "macos"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+crossterm = "0.28"
+ratatui = "0.29"
+color-eyre = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
