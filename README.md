@@ -51,8 +51,10 @@ sudo cp target/release/gsty /usr/local/bin/gsty
 ## Usage
 
 ```bash
-gsty                          # Interactive TUI theme picker
-gsty --list                   # Plain text listing (non-TTY fallback)
+gsty            # Interactive TUI theme picker
+gsty --list     # Plain text listing (non-TTY fallback), alias -l
+gsty --version  # Print version, alias -V
+gsty --help     # Print this help, alias -h
 ```
 
 ### TUI keybindings
