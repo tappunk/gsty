@@ -54,9 +54,9 @@ impl ThemeFilter {
     }
 }
 
-struct RawModeGuard;
+struct TerminalGuard;
 
-impl RawModeGuard {
+impl TerminalGuard {
     fn acquire() -> Result<Self, color_eyre::Report> {
         enable_raw_mode()?;
         let mut stdout = std::io::stdout();
@@ -65,7 +65,7 @@ impl RawModeGuard {
     }
 }
 
-impl Drop for RawModeGuard {
+impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let mut stdout = std::io::stdout();
         let _ = execute!(stdout, LeaveAlternateScreen);
@@ -90,23 +90,24 @@ fn parse_color(hex: &str) -> Option<Color> {
     Some(Color::Rgb(r, g, b))
 }
 
+fn named_rgb(color: Color) -> (u8, u8, u8) {
+    match color {
+        Color::Rgb(r, g, b) => (r, g, b),
+        Color::Black => (0, 0, 0),
+        Color::Red => (255, 0, 0),
+        Color::Green => (0, 255, 0),
+        Color::Yellow => (255, 255, 0),
+        Color::Blue => (0, 0, 255),
+        Color::Magenta => (255, 0, 255),
+        Color::Cyan => (0, 255, 255),
+        Color::White => (255, 255, 255),
+        _ => (128, 128, 128),
+    }
+}
+
 fn color_luminance(color: Color) -> f32 {
-    let (r, g, b) = match color {
-        Color::Rgb(r, g, b) => (r as f32, g as f32, b as f32),
-        Color::Black => (0.0, 0.0, 0.0),
-        Color::Red => (255.0, 0.0, 0.0),
-        Color::Green => (0.0, 255.0, 0.0),
-        Color::Yellow => (255.0, 255.0, 0.0),
-        Color::Blue => (0.0, 0.0, 255.0),
-        Color::Magenta => (255.0, 0.0, 255.0),
-        Color::Cyan => (0.0, 255.0, 255.0),
-        Color::White => (255.0, 255.0, 255.0),
-        _ => (128.0, 128.0, 128.0),
-    };
-    let rf = r / 255.0;
-    let gf = g / 255.0;
-    let bf = b / 255.0;
-    0.2126 * rf + 0.7152 * gf + 0.0722 * bf
+    let (r, g, b) = named_rgb(color);
+    0.2126 * (r as f32 / 255.0) + 0.7152 * (g as f32 / 255.0) + 0.0722 * (b as f32 / 255.0)
 }
 
 fn parse_palette_entry(entry: &str) -> Option<(usize, Color)> {
@@ -175,70 +176,43 @@ fn parse_theme_file(path: &Path) -> Option<Theme> {
     })
 }
 
+fn scan_theme_dir(dir: &Path, themes: &mut Vec<Theme>) {
+    if !dir.exists() {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        eprintln!(
+            "warning: cannot read theme directory {}: permission denied",
+            dir.display()
+        );
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        match parse_theme_file(&path) {
+            Some(theme) => themes.push(theme),
+            None => eprintln!("warning: failed to parse theme file: {}", path.display()),
+        }
+    }
+}
+
 fn discover_themes() -> Vec<Theme> {
     let mut themes = Vec::new();
 
-    let bundled_paths = [
+    for dir_path in [
         "/Applications/Ghostty.app/Contents/Resources/ghostty/themes",
         "/opt/homebrew/share/ghostty/themes",
         "/usr/share/ghostty/themes",
-    ];
-
-    for dir_path in &bundled_paths {
-        let dir = PathBuf::from(dir_path);
-        if !dir.exists() {
-            continue;
-        }
-        let Ok(entries) = fs::read_dir(&dir) else {
-            eprintln!(
-                "warning: cannot read theme directory {}: permission denied",
-                dir.display()
-            );
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            match parse_theme_file(&path) {
-                Some(theme) => themes.push(theme),
-                None => {
-                    eprintln!("warning: failed to parse theme file: {}", path.display());
-                }
-            }
-        }
+    ] {
+        scan_theme_dir(Path::new(dir_path), &mut themes);
     }
 
     if let Ok(home) = std::env::var("HOME") {
-        let user_dir = PathBuf::from(&home).join(".config/ghostty/themes");
-        if user_dir.exists() {
-            match fs::read_dir(&user_dir) {
-                Ok(entries) => {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if !path.is_file() {
-                            continue;
-                        }
-                        match parse_theme_file(&path) {
-                            Some(theme) => themes.push(theme),
-                            None => {
-                                eprintln!(
-                                    "warning: failed to parse theme file: {}",
-                                    path.display()
-                                );
-                            }
-                        }
-                    }
-                }
-                Err(_) => {
-                    eprintln!(
-                        "warning: cannot read theme directory {}: permission denied",
-                        user_dir.display()
-                    );
-                }
-            }
-        }
+        let user_dir = Path::new(&home).join(".config/ghostty/themes");
+        scan_theme_dir(&user_dir, &mut themes);
     } else {
         eprintln!("warning: home is not set, skipping user theme directory");
     }
@@ -351,33 +325,12 @@ fn send_sigusr2_to_pids(pids: &[String]) -> Result<bool, color_eyre::Report> {
     Ok(status.success())
 }
 
-struct GhosttySignaler;
-
-impl GhosttySignaler {
-    fn discover() -> Self {
-        match ghostty_pids_from_ps() {
-            Ok(pids) => {
-                if pids.is_empty() {
-                    eprintln!("warning: no ghostty processes found");
-                }
-            }
-            Err(e) => {
-                eprintln!("warning: ghostty PID discovery failed: {e}");
-            }
-        }
-        Self
+fn reload_ghostty() -> Result<bool, color_eyre::Report> {
+    let pids = ghostty_pids_from_ps()?;
+    if pids.is_empty() {
+        return Ok(false);
     }
-
-    fn reload(&self) -> Result<bool, color_eyre::Report> {
-        let pids = ghostty_pids_from_ps().map_err(|e| {
-            eprintln!("warning: ghostty PID discovery failed: {e}");
-            e
-        })?;
-        if pids.is_empty() {
-            return Ok(false);
-        }
-        send_sigusr2_to_pids(&pids)
-    }
+    send_sigusr2_to_pids(&pids)
 }
 
 fn filter_themes(themes: &[Theme], filter: ThemeFilter, search: &str) -> Vec<usize> {
@@ -400,18 +353,8 @@ fn filter_themes(themes: &[Theme], filter: ThemeFilter, search: &str) -> Vec<usi
 }
 
 fn format_hex(color: Color) -> String {
-    match color {
-        Color::Rgb(r, g, b) => format!("#{:02x}{:02x}{:02x}", r, g, b),
-        Color::Black => "#000000".to_string(),
-        Color::Red => "#ff0000".to_string(),
-        Color::Green => "#00ff00".to_string(),
-        Color::Yellow => "#ffff00".to_string(),
-        Color::Blue => "#0000ff".to_string(),
-        Color::Magenta => "#ff00ff".to_string(),
-        Color::Cyan => "#00ffff".to_string(),
-        Color::White => "#ffffff".to_string(),
-        _ => "unknown".to_string(),
-    }
+    let (r, g, b) = named_rgb(color);
+    format!("#{:02x}{:02x}{:02x}", r, g, b)
 }
 
 fn render_preview(frame: &mut ratatui::Frame, theme: &Theme, area: Rect) {
@@ -563,6 +506,22 @@ fn render_preview(frame: &mut ratatui::Frame, theme: &Theme, area: Rect) {
     frame.render_widget(editor_snippet, chunks[9]);
 }
 
+fn restore_previous_theme(
+    preview_applied: bool,
+    original_theme_name: &Option<String>,
+) -> Result<bool, color_eyre::Report> {
+    if !preview_applied {
+        return Ok(false);
+    }
+    if let Some(name) = original_theme_name {
+        apply_theme(name)?;
+    } else {
+        clear_active_theme()?;
+    }
+    reload_ghostty()?;
+    Ok(true)
+}
+
 pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
     const LIVE_PREVIEW_DEBOUNCE: Duration = Duration::from_millis(120);
 
@@ -584,10 +543,10 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
     }
 
     let original_theme_name = read_active_theme_name()?;
-    let signaler = GhosttySignaler::discover();
+    let mut preview_applied = false;
 
     let result = {
-        let _raw_mode = RawModeGuard::acquire()?;
+        let _terminal_guard = TerminalGuard::acquire()?;
         (|| -> Result<(Option<Theme>, bool), color_eyre::Report> {
             let stdout = std::io::stdout();
             let backend = CrosstermBackend::new(stdout);
@@ -598,7 +557,6 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
             let mut search_active = false;
             let mut state = ListState::default().with_selected(Some(0));
             let mut filtered = filter_themes(&themes, filter, &search);
-            let mut preview_applied = false;
             let mut last_preview_at = Instant::now() - LIVE_PREVIEW_DEBOUNCE;
             let mut previewed_theme: Option<String> = None;
             let mut preview_warning: Option<String> = None;
@@ -619,7 +577,7 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
                             Ok(()) => {
                                 preview_applied = true;
                                 previewed_theme = Some(selected_theme.clone());
-                                match signaler.reload() {
+                                match reload_ghostty() {
                                     Ok(true) => preview_warning = None,
                                     Ok(false) => {
                                         preview_warning =
@@ -778,7 +736,7 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
         Ok((Some(theme), _)) => {
             apply_theme(&theme.name)?;
             eprintln!("info: applied theme {}", theme.name);
-            match signaler.reload() {
+            match reload_ghostty() {
                 Ok(true) => {
                     eprintln!("info: signaled ghostty to reload configuration");
                 }
@@ -798,26 +756,24 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
             }
         }
         Ok((None, preview_applied)) => {
-            if preview_applied {
-                if let Some(name) = original_theme_name {
-                    match apply_theme(&name).and_then(|_| signaler.reload().map(|_| ())) {
-                        Ok(()) => eprintln!("info: cancelled and restored previous theme"),
-                        Err(e) => eprintln!("warning: cancelled but failed to restore theme: {e}"),
+            match restore_previous_theme(preview_applied, &original_theme_name) {
+                Ok(true) => eprintln!(
+                    "info: cancelled and {}",
+                    if original_theme_name.is_some() {
+                        "restored previous theme"
+                    } else {
+                        "cleared preview theme"
                     }
-                } else {
-                    match clear_active_theme().and_then(|_| signaler.reload().map(|_| ())) {
-                        Ok(()) => eprintln!("info: cancelled and cleared preview theme"),
-                        Err(e) => {
-                            eprintln!("warning: cancelled but failed to clear preview theme: {e}")
-                        }
-                    }
-                }
-            } else {
-                eprintln!("info: cancelled");
+                ),
+                Ok(false) => eprintln!("info: cancelled"),
+                Err(e) => eprintln!("warning: cancelled but failed to restore theme: {e}"),
             }
         }
         Err(e) => {
             eprintln!("error: {e}");
+            if let Err(re) = restore_previous_theme(preview_applied, &original_theme_name) {
+                eprintln!("warning: failed to restore previous theme: {re}");
+            }
         }
     }
 
@@ -828,17 +784,27 @@ pub fn run(list_only: bool) -> Result<(), color_eyre::Report> {
 mod tests {
     use super::*;
 
-    fn write_temp_theme_file(contents: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "gsty-test-{}-{}.ghostty",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock before unix epoch")
-                .as_nanos()
-        ));
-        fs::write(&path, contents).expect("failed to write temp theme file");
-        path
+    struct TempThemeFile(PathBuf);
+
+    impl TempThemeFile {
+        fn new(contents: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "gsty-test-{}-{}.ghostty",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("clock before unix epoch")
+                    .as_nanos()
+            ));
+            fs::write(&path, contents).expect("failed to write temp theme file");
+            Self(path)
+        }
+    }
+
+    impl Drop for TempThemeFile {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
     }
 
     #[test]
@@ -868,46 +834,39 @@ mod tests {
 
     #[test]
     fn parse_theme_file_handles_inline_comments() {
-        let file = write_temp_theme_file(
+        let file = TempThemeFile::new(
             "background = #111111 # dark\nforeground = #eeeeee # light\npalette = 1=#ff0000 # red\n",
         );
 
-        let theme = parse_theme_file(&file).expect("theme should parse");
+        let theme = parse_theme_file(&file.0).expect("theme should parse");
         assert_eq!(theme.background, Color::Rgb(0x11, 0x11, 0x11));
         assert_eq!(theme.foreground, Color::Rgb(0xee, 0xee, 0xee));
         assert_eq!(theme.palette[1], Color::Rgb(0xff, 0x00, 0x00));
         assert!(theme.is_dark);
-
-        fs::remove_file(file).expect("failed to remove temp file");
     }
 
     #[test]
     fn parse_theme_file_accepts_multiple_palette_entries() {
-        let file = write_temp_theme_file(
-            "palette = 0=#000000, 1=#111111 2=#222222\nbackground = #fafafa\n",
-        );
+        let file =
+            TempThemeFile::new("palette = 0=#000000, 1=#111111 2=#222222\nbackground = #fafafa\n");
 
-        let theme = parse_theme_file(&file).expect("theme should parse");
+        let theme = parse_theme_file(&file.0).expect("theme should parse");
         assert_eq!(theme.palette[0], Color::Rgb(0x00, 0x00, 0x00));
         assert_eq!(theme.palette[1], Color::Rgb(0x11, 0x11, 0x11));
         assert_eq!(theme.palette[2], Color::Rgb(0x22, 0x22, 0x22));
         assert!(!theme.is_dark);
-
-        fs::remove_file(file).expect("failed to remove temp file");
     }
 
     #[test]
     fn parse_theme_file_handles_inline_comments_without_space() {
-        let file = write_temp_theme_file(
+        let file = TempThemeFile::new(
             "background = #111111#dark\nforeground = #eeeeee#light\npalette = 1=#ff0000#red\n",
         );
 
-        let theme = parse_theme_file(&file).expect("theme should parse");
+        let theme = parse_theme_file(&file.0).expect("theme should parse");
         assert_eq!(theme.background, Color::Rgb(0x11, 0x11, 0x11));
         assert_eq!(theme.foreground, Color::Rgb(0xee, 0xee, 0xee));
         assert_eq!(theme.palette[1], Color::Rgb(0xff, 0x00, 0x00));
         assert!(theme.is_dark);
-
-        fs::remove_file(file).expect("failed to remove temp file");
     }
 }
