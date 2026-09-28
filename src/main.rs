@@ -5,6 +5,8 @@ mod theme;
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    const KNOWN_FLAGS: [&str; 6] = ["--list", "-l", "--version", "-V", "--help", "-h"];
+
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         println!("gsty {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
@@ -18,9 +20,9 @@ fn run() -> Result<()> {
         println!();
         println!("Usage:");
         println!("  gsty              Interactive TUI theme picker");
-        println!("  gsty --list       Plain text listing of discovered themes");
-        println!("  gsty --version    Print version");
-        println!("  gsty --help       Print this help");
+        println!("  gsty --list       Plain text listing of discovered themes  [-l]");
+        println!("  gsty --version    Print version                          [-V]");
+        println!("  gsty --help       Print this help                        [-h]");
         println!();
         println!("TUI Keybindings:");
         println!("  j/k     Navigate themes    f     Cycle filter (all/dark/light)");
@@ -33,7 +35,7 @@ fn run() -> Result<()> {
     let unknown_args: Vec<&str> = args
         .iter()
         .map(String::as_str)
-        .filter(|arg| !matches!(*arg, "--list" | "-l" | "--version" | "-V" | "--help" | "-h"))
+        .filter(|arg| !KNOWN_FLAGS.contains(arg))
         .collect();
 
     if !unknown_args.is_empty() {
