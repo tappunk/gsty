@@ -2,7 +2,7 @@
 name = "gsty"
 version = "0.1.20"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.85"
 authors = ["tappunk"]
 description = "Ghostty live preview theme browser and installer TUI"
 repository = "https://github.com/tappunk/gsty"
